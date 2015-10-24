@@ -195,19 +195,13 @@ macro_rules! int_convert_u64_or_i64 (
             }
         }
 
-        impl <'python, 'source, 'prepared>
-            ExtractPyObject<'python, 'source, 'prepared> for $rust_type
-            where 'python: 'source
+        impl <'python, 'prepared>
+            ExtractPyObject<'python, 'prepared> for $rust_type
         {
-            type Prepared = &'source PyObject<'python>;
-
-            #[inline]
-            fn prepare_extract(obj: &'source PyObject<'python>) -> PyResult<'python, Self::Prepared> {
-                Ok(obj)
-            }
+            type Prepared = $rust_type;
 
             #[cfg(feature="python27-sys")]
-            fn extract(&obj: &'prepared &'source PyObject<'python>) -> PyResult<'python, $rust_type> {
+            fn prepare_extract(obj: &PyObject<'python>) -> PyResult<'python, $rust_type> {
                 let py = obj.python();
                 let ptr = obj.as_ptr();
 
@@ -227,7 +221,7 @@ macro_rules! int_convert_u64_or_i64 (
             }
 
             #[cfg(feature="python3-sys")]
-            fn extract(&obj: &'prepared &'source PyObject<'python>) -> PyResult<'python, $rust_type> {
+            fn prepare_extract(obj: &PyObject<'python>) -> PyResult<'python, $rust_type> {
                 let py = obj.python();
                 let ptr = obj.as_ptr();
                 unsafe {
@@ -238,6 +232,11 @@ macro_rules! int_convert_u64_or_i64 (
                         err_if_invalid_value(&num, !0, || $pylong_as_ull_or_ull(num.as_ptr()) )
                     }
                 }
+            }
+
+            #[inline]
+            fn extract(prepared: &'prepared $rust_type) -> PyResult<'python, $rust_type> {
+                Ok(*prepared)
             }
         }
     )

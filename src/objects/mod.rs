@@ -154,20 +154,19 @@ macro_rules! pyobject_newtype(
 
 macro_rules! extract(
     ($obj:ident to $t:ty => $body: block) => {
-        impl <'python, 'source, 'prepared>
-            ::conversion::ExtractPyObject<'python, 'source, 'prepared>
-            for $t
-            where 'python: 'source
+        impl <'python, 'prepared>
+            ::conversion::ExtractPyObject<'python, 'prepared>
+            for $t where 'python : 'prepared
         {
 
-            type Prepared = &'source PyObject<'python>;
+            type Prepared = PyObject<'python>;
 
             #[inline]
-            fn prepare_extract(obj: &'source PyObject<'python>) -> PyResult<'python, Self::Prepared> {
-                Ok(obj)
+            fn prepare_extract(obj: &PyObject<'python>) -> PyResult<'python, Self::Prepared> {
+                Ok(obj.clone())
             }
 
-            fn extract(&$obj: &'prepared &'source PyObject<'python>) -> PyResult<'python, Self> {
+            fn extract($obj: &'prepared PyObject<'python>) -> PyResult<'python, Self> {
                 $body
             }
         }

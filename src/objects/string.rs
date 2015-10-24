@@ -326,22 +326,38 @@ extract!(obj to String => {
 /// Allows extracting strings from Python objects.
 /// Accepts Python `str` and `unicode` objects.
 /// In Python 2.7, `str` is expected to be UTF-8 encoded.
-extract!(obj to Cow<'source, str> => {
+extract!(obj to Cow<'prepared, str> => {
     PyString::extract(obj)
 });
 
-impl <'python, 'source, 'prepared> ExtractPyObject<'python, 'source, 'prepared> for &'prepared str {
+enum PreparedString<'python> {
+    Extracted(String),
+    BorrowFrom(PyObject<'python>)
+}
 
-    type Prepared = Cow<'source, str>;
+impl <'python, 'prepared> ExtractPyObject<'python, 'prepared> for &'prepared str {
+
+    type Prepared = PreparedString<'python>;
 
     #[inline]
-    fn prepare_extract(obj: &'source PyObject<'python>) -> PyResult<'python, Self::Prepared> {
-        PyString::extract(obj)
+    fn prepare_extract(obj: &PyObject<'python>) -> PyResult<'python, Self::Prepared> {
+        match try!(PyString::extract(obj)) {
+            Cow::Owned(s) => Ok(PreparedString::Extracted(s)),
+            Cow::Borrowed(_) => Ok(PreparedString::BorrowFrom(obj.clone()))
+        }
     }
 
     #[inline]
-    fn extract(cow: &'prepared Cow<'source, str>) -> PyResult<'python, Self> {
-        Ok(cow)
+    fn extract(prepared: &'prepared PreparedString<'python>) -> PyResult<'python, Self> {
+        match *prepared {
+            PreparedString::Extracted(ref s) => Ok(s),
+            PreparedString::BorrowFrom(ref obj) => {
+                match try!(PyString::extract(obj)) {
+                    Cow::Owned(_) => panic!("Failed to borrow from python object"),
+                    Cow::Borrowed(s) => Ok(s)
+                }
+            }
+        }
     }
 }
 

@@ -70,7 +70,7 @@ pub trait ToPyObject<'p> {
     //   -> into_py_object() allocates new Python object
 }
 
-/// FromPyObject is implemented by various types that can be extracted from a Python object.
+/// ExtractPyObject is implemented by various types that can be extracted from a Python object.
 ///
 /// Usage:
 /// ```let obj: PyObject = ...;
@@ -89,28 +89,27 @@ pub trait ToPyObject<'p> {
 ///
 /// In cases where the result does not depend on the `'prepared` lifetime,
 /// the inherent method `PyObject::extract()` can be used.
-pub trait ExtractPyObject<'python, 'source, 'prepared> : Sized {
-    type Prepared : 'source;
+pub trait ExtractPyObject<'python, 'prepared> : Sized {
+    type Prepared : 'python + 'prepared;
 
-    fn prepare_extract(obj: &'source PyObject<'python>) -> PyResult<'python, Self::Prepared>;
+    fn prepare_extract(obj: &PyObject<'python>) -> PyResult<'python, Self::Prepared>;
 
     fn extract(prepared: &'prepared Self::Prepared) -> PyResult<'python, Self>;
 }
 
-impl <'python, 'source, 'prepared, T> ExtractPyObject<'python, 'source, 'prepared> for T
-where T: PythonObjectWithCheckedDowncast<'python>,
-      'python: 'source
+impl <'python, 'prepared, T> ExtractPyObject<'python, 'prepared> for T
+where T: PythonObjectWithCheckedDowncast<'python>, 'python : 'prepared
 {
 
-    type Prepared = &'source PyObject<'python>;
+    type Prepared = PyObject<'python>;
 
     #[inline]
-    fn prepare_extract(obj: &'source PyObject<'python>) -> PyResult<'python, Self::Prepared> {
-        Ok(obj)
+    fn prepare_extract(obj: &PyObject<'python>) -> PyResult<'python, PyObject<'python>> {
+        Ok(obj.clone())
     }
 
     #[inline]
-    fn extract(&obj: &'prepared &'source PyObject<'python>) -> PyResult<'python, T> {
+    fn extract(obj: &'prepared PyObject<'python>) -> PyResult<'python, T> {
         Ok(try!(obj.clone().cast_into()))
     }
 }

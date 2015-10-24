@@ -136,25 +136,37 @@ impl <'p, T> ToPyObject<'p> for [T] where T: ToPyObject<'p> {
     }
 }
 
-impl <'python, 'source, 'prepared, T> ExtractPyObject<'python, 'source, 'prepared>
+impl <'python, 'prepared, T> ExtractPyObject<'python, 'prepared>
     for Vec<T>
-    where T: for<'s, 'p> ExtractPyObject<'python, 's, 'p>,
-          'python : 'source
+    where T: ExtractPyObject<'python, 'prepared>
 {
 
-    type Prepared = &'source PyObject<'python>;
+    type Prepared = Vec<T::Prepared>;
 
-    #[inline]
-    fn prepare_extract(obj: &'source PyObject<'python>) -> PyResult<'python, Self::Prepared> {
-        Ok(obj)
-    }
-
-    #[inline]
-    fn extract(&obj: &'prepared &'source PyObject<'python>) -> PyResult<'python, Vec<T>> {
+    fn prepare_extract(obj: &PyObject<'python>) -> PyResult<'python, Self::Prepared> {
         let list = try!(obj.cast_as::<PyList>());
         let mut v = Vec::with_capacity(list.len());
         for i in 0 .. list.len() {
-            v.push(try!(list.get_item(i).extract::<T>()));
+            v.push(try!(T::prepare_extract(&list.get_item(i))));
+        }
+        Ok(v)
+    }
+
+    fn extract(prepared: &'prepared Self::Prepared) -> PyResult<'python, Vec<T>> {
+        let mut v = Vec::with_capacity(prepared.len());
+        //let mut it : ::std::slice::Iter<'prepared, <T as ExtractPyObject<'python, 'prepared>>::Prepared> = prepared.iter();
+        /*while let Some(prepared_elem) = ({
+                let elem : Option<&'prepared <T as ExtractPyObject<'python, 'prepared>>::Prepared> = it.next();
+                elem
+            }) {
+            let prepared_elem: &'prepared <T as ExtractPyObject<'python, 'prepared>>::Prepared = prepared_elem;
+        }*/
+        //for prepared_elem in it {
+            //let prepared_elem: &'prepared T::Prepared = prepared_elem;
+        //}
+        for prepared_elem in prepared {
+          //  let prepared_elem: &'prepared T::Prepared = prepared_elem;
+            v.push(try!(T::extract(prepared_elem)));
         }
         Ok(v)
     }
